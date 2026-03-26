@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REVELIER — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c27;
+    --border: #2a2a3a;
+    --gold: #c9a84c;
+    --gold-light: #e8c96a;
+    --gold-dim: rgba(201,168,76,0.15);
+    --teal: #3ecfb2;
+    --red: #e05a6b;
+    --text: #f0ede6;
+    --text-dim: #8a8799;
+    --text-mid: #bab8c8;
+    --font-display: 'Bebas Neue', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+    --accent: #c9a84c;
+    --accent-rgb: 201,168,76;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font-body); min-height:100vh; }
+
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, #0f0f18 0%, #13131a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 24px 40px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo { font-family:var(--font-display); font-size:2.2rem; letter-spacing:4px; color:var(--gold); }
+  .header-meta { text-align:right; }
+  .header-meta .label { font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:2px; }
+  .header-meta .value { font-family:var(--font-mono); font-size:0.85rem; color:var(--teal); margin-top:2px; }
+  .live-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    background:rgba(62,207,178,0.1); border:1px solid rgba(62,207,178,0.3);
+    border-radius:20px; padding:4px 12px; font-size:0.7rem;
+    color:var(--teal); text-transform:uppercase; letter-spacing:1px; margin-top:6px;
+  }
+  .live-dot { width:6px; height:6px; border-radius:50%; background:var(--teal); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* LOADING */
+  .loading-screen {
+    position:fixed; inset:0; background:var(--bg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    z-index:100; transition:opacity 0.5s;
+  }
+  .loading-screen.hidden { opacity:0; pointer-events:none; }
+  .loading-logo { font-family:var(--font-display); font-size:4rem; color:var(--gold); letter-spacing:8px; margin-bottom:16px; }
+  .loading-bar { width:200px; height:2px; background:var(--border); border-radius:2px; overflow:hidden; }
+  .loading-fill { height:100%; background:var(--gold); width:0%; transition:width 0.3s; border-radius:2px; }
+  .loading-text { font-size:0.75rem; color:var(--text-dim); margin-top:12px; letter-spacing:2px; text-transform:uppercase; }
+
+  /* MAIN */
+  .main { padding: 32px 40px; max-width:1400px; margin:0 auto; }
+
+  /* KPI ROW */
+  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:32px; }
+  .kpi-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:20px 24px; position:relative; overflow:hidden;
+    transition: border-color 0.2s;
+  }
+  .kpi-card:hover { border-color: var(--gold); }
+  .kpi-card::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  }
+  .kpi-card.gold::before { background:var(--gold); }
+  .kpi-card.teal::before { background:var(--teal); }
+  .kpi-card.red::before { background:var(--red); }
+  .kpi-card.purple::before { background:#9b8fff; }
+  .kpi-label { font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:2px; margin-bottom:8px; }
+  .kpi-value { font-family:var(--font-mono); font-size:1.6rem; font-weight:500; color:var(--text); }
+  .kpi-value.gold { color:var(--gold); }
+  .kpi-value.teal { color:var(--teal); }
+  .kpi-value.red { color:var(--red); }
+  .kpi-value.purple { color:#9b8fff; }
+  .kpi-sub { font-size:0.75rem; color:var(--text-dim); margin-top:6px; }
+
+  /* SECTION TITLE */
+  .section-title {
+    font-family:var(--font-display); font-size:1.4rem; letter-spacing:3px;
+    color:var(--gold); margin-bottom:16px; padding-bottom:8px;
+    border-bottom:1px solid var(--border);
+  }
+
+  /* P&L TABLE */
+  .pnl-container { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:32px; }
+  .pnl-table { width:100%; border-collapse:collapse; }
+  .pnl-table th {
+    background:var(--surface2); padding:12px 20px; text-align:left;
+    font-size:0.7rem; color:var(--text-dim); text-transform:uppercase;
+    letter-spacing:2px; font-weight:500; border-bottom:1px solid var(--border);
+  }
+  .pnl-table th:last-child { text-align:right; }
+  .pnl-table td { padding:12px 20px; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.88rem; }
+  .pnl-table tr:last-child td { border-bottom:none; }
+  .pnl-table td:last-child { text-align:right; font-family:var(--font-mono); }
+  .pnl-level { font-size:0.65rem; color:var(--text-dim); font-family:var(--font-mono); margin-right:8px; }
+  .pnl-row-title { color:var(--text-mid); }
+  .pnl-row-title.main { color:var(--text); font-weight:600; }
+  .pnl-row-title.result { color:var(--gold); font-weight:600; }
+  .pnl-row-title.final { color:var(--teal); font-weight:600; }
+  .pnl-positive { color:var(--teal); }
+  .pnl-negative { color:var(--red); }
+  .pnl-neutral { color:var(--gold); }
+  .pnl-separator td { background:var(--surface2); padding:6px 20px; }
+  .pnl-margin { font-size:0.75rem; color:var(--text-dim); margin-left:8px; }
+
+  /* TWO COL */
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:32px; }
+
+  /* PROJECT TABLE */
+  .project-container { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .project-table { width:100%; border-collapse:collapse; }
+  .project-table th {
+    background:var(--surface2); padding:10px 16px; text-align:left;
+    font-size:0.65rem; color:var(--text-dim); text-transform:uppercase;
+    letter-spacing:1.5px; font-weight:500; border-bottom:1px solid var(--border);
+  }
+  .project-table td { padding:10px 16px; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.82rem; }
+  .project-table tr:last-child td { border-bottom:none; }
+  .project-table tr:hover td { background:rgba(201,168,76,0.04); }
+  .project-name { color:var(--text); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .project-id { font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); }
+  .amount-pos { font-family:var(--font-mono); color:var(--teal); }
+  .amount-neg { font-family:var(--font-mono); color:var(--red); }
+  .amount-net { font-family:var(--font-mono); color:var(--gold); }
+  .margin-badge {
+    display:inline-block; padding:2px 8px; border-radius:4px;
+    font-size:0.7rem; font-family:var(--font-mono);
+  }
+  .margin-high { background:rgba(62,207,178,0.15); color:var(--teal); }
+  .margin-mid { background:rgba(201,168,76,0.15); color:var(--gold); }
+  .margin-low { background:rgba(224,90,107,0.15); color:var(--red); }
+
+  /* BAR CHART */
+  .bar-chart { padding:20px; }
+  .bar-item { margin-bottom:16px; }
+  .bar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .bar-name { font-size:0.8rem; color:var(--text-mid); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bar-val { font-family:var(--font-mono); font-size:0.78rem; color:var(--gold); }
+  .bar-track { background:var(--surface2); border-radius:3px; height:6px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:3px; background:linear-gradient(90deg, var(--gold), var(--gold-light)); transition:width 1s ease; }
+  .bar-fill.teal { background:linear-gradient(90deg, var(--teal), #6ef0d8); }
+  .bar-fill.red { background:linear-gradient(90deg, var(--red), #f08090); }
+
+  /* CONCEPTO BREAKDOWN */
+  .cost-breakdown { padding:20px; }
+  .cost-item { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .cost-item:last-child { border-bottom:none; }
+  .cost-name { font-size:0.82rem; color:var(--text-mid); flex:1; padding-right:16px; }
+  .cost-amount { font-family:var(--font-mono); font-size:0.82rem; color:var(--red); }
+
+  /* HEALTH GRID */
+  .health-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:32px; }
+  .health-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:18px; transition: border-color 0.2s;
+  }
+  .health-card.healthy  { border-left:3px solid var(--teal); }
+  .health-card.warning  { border-left:3px solid var(--gold); }
+  .health-card.critical { border-left:3px solid var(--red); }
+  .health-id   { font-family:var(--font-mono); font-size:0.65rem; color:var(--text-dim); margin-bottom:4px; }
+  .health-name { font-size:0.88rem; color:var(--text); font-weight:600; margin-bottom:12px; }
+  .health-row  { display:flex; justify-content:space-between; font-size:0.76rem; margin-bottom:5px; }
+  .health-key  { color:var(--text-dim); }
+  .health-val  { font-family:var(--font-mono); }
+
+  /* Footer */
+  .footer { padding:24px 40px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+  .footer-text { font-size:0.7rem; color:var(--text-dim); }
+
+  /* ERROR */
+  .error-card { background:rgba(224,90,107,0.1); border:1px solid var(--red); border-radius:8px; padding:16px 20px; color:var(--red); font-size:0.85rem; }
+
+  /* ── FILTROS ── */
+  .filter-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 40px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .filter-group { display:flex; align-items:center; gap:8px; }
+  .filter-label {
+    font-size:0.65rem; color:var(--text-dim); text-transform:uppercase;
+    letter-spacing:1.5px; white-space:nowrap;
+  }
+  .filter-select, .filter-input {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--font-body); font-size: 0.8rem;
+    padding: 6px 12px; border-radius: 6px; outline: none; cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .filter-select:hover, .filter-input:hover,
+  .filter-select:focus, .filter-input:focus { border-color: var(--accent); }
+  .filter-input { width: 130px; }
+  .filter-sep {
+    width: 1px; height: 28px; background: var(--border); margin: 0 4px;
+  }
+  .filter-active-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    background: rgba(var(--accent-rgb),0.12); border:1px solid rgba(var(--accent-rgb),0.35);
+    border-radius:20px; padding:3px 10px; font-size:0.68rem;
+    color:var(--accent); letter-spacing:1px;
+  }
+  .filter-clear {
+    background:none; border:1px solid var(--border); color:var(--text-dim);
+    font-size:0.7rem; padding:5px 12px; border-radius:6px; cursor:pointer;
+    font-family:var(--font-body); transition: all 0.2s; white-space:nowrap;
+  }
+  .filter-clear:hover { border-color:var(--accent); color:var(--accent); }
+</style>
+</head>
+<body>
+<!-- LOADING -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="loading-logo">REVELIER</div>
+  <div class="loading-bar"><div class="loading-fill" id="loadingFill"></div></div>
+  <div class="loading-text" id="loadingText">Conectando con Google Sheets...</div>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div>
+    <div class="logo">REVELIER</div>
+    <div style="font-size:0.7rem;color:var(--text-dim);letter-spacing:2px;margin-top:2px;">DASHBOARD FINANCIERO — PORTFOLIO COMPLETO</div>
+  </div>
+  <div class="header-meta">
+    <div class="label">Última actualización</div>
+    <div class="value" id="lastUpdate">—</div>
+    <div class="live-badge"><span class="live-dot"></span>En vivo · Google Sheets</div>
+  </div>
+</div>
+
+<div class="main">
+  <!-- FILTROS -->
+  <div class="filter-bar" id="filterBar">
+    <!-- Filtro temporal -->
+    <div class="filter-group">
+      <span class="filter-label">Período</span>
+      <select class="filter-select" id="filterPeriod" onchange="applyFiltersAndRebuild()">
+        <option value="all">Todo el historial</option>
+        <option value="this_year">Este año</option>
+        <option value="prev_year">Año anterior</option>
+        <option value="this_semester">Este semestre</option>
+        <option value="this_quarter">Este trimestre</option>
+        <option value="this_month">Este mes</option>
+        <option value="prev_month">Mes anterior</option>
+        <option value="last_full_semester">Último semestre completo</option>
+        <option value="last_full_quarter">Último trimestre completo</option>
+        <option value="custom">Rango personalizado...</option>
+      </select>
+    </div>
+
+    <!-- Rango manual (visible solo cuando period=custom) -->
+    <div class="filter-group" id="customRangeGroup" style="display:none">
+      <span class="filter-label">Desde</span>
+      <input type="date" class="filter-input" id="filterFrom" onchange="applyFiltersAndRebuild()">
+      <span class="filter-label">Hasta</span>
+      <input type="date" class="filter-input" id="filterTo" onchange="applyFiltersAndRebuild()">
+    </div>
+
+    <div class="filter-sep"></div>
+
+    <!-- Filtro por proyecto / cliente -->
+    <div class="filter-group">
+      <span class="filter-label">Proyecto</span>
+      <select class="filter-select" id="filterProject" onchange="applyFiltersAndRebuild()">
+        <option value="all">Todos</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Cliente</span>
+      <select class="filter-select" id="filterClient" onchange="applyFiltersAndRebuild()">
+        <option value="all">Todos</option>
+      </select>
+    </div>
+
+    <div class="filter-sep"></div>
+
+    <!-- Estado / badge activo + reset -->
+    <div class="filter-group" id="filterStatus" style="display:none">
+      <span class="filter-active-badge" id="filterBadge">Filtro activo</span>
+    </div>
+    <button class="filter-clear" onclick="resetFilters()">✕ Limpiar filtros</button>
+  </div>
+
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpiRow">
+    <div class="kpi-card gold"><div class="kpi-label">Total Ingresos</div><div class="kpi-value gold" id="kpiIngresos">—</div><div class="kpi-sub" id="kpiIngSub">—</div></div>
+    <div class="kpi-card red"><div class="kpi-label">Total Egresos</div><div class="kpi-value red" id="kpiEgresos">—</div><div class="kpi-sub" id="kpiEgrSub">—</div></div>
+    <div class="kpi-card teal"><div class="kpi-label">Utilidad Neta</div><div class="kpi-value teal" id="kpiUtilidad">—</div><div class="kpi-sub" id="kpiUtilSub">—</div></div>
+    <div class="kpi-card purple"><div class="kpi-label">Proyectos Activos</div><div class="kpi-value purple" id="kpiProyectos">—</div><div class="kpi-sub" id="kpiProySub">—</div></div>
+  </div>
+
+  <!-- P&L -->
+  <div class="section-title">ESTADO DE RESULTADOS P&L</div>
+  <div class="pnl-container" id="pnlContainer">
+    <table class="pnl-table" id="pnlTable"></table>
+  </div>
+
+  <!-- TWO COL: Projects + Bar chart -->
+  <div class="two-col">
+    <div>
+      <div class="section-title">RENTABILIDAD POR PROYECTO</div>
+      <div class="project-container">
+        <table class="project-table" id="projectTable">
+          <thead><tr>
+            <th>ID</th><th>Cliente</th><th>Ingresos</th><th>Costos</th><th>Utilidad</th><th>Margen</th>
+          </tr></thead>
+          <tbody id="projectBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <div class="section-title">TOP PROYECTOS POR INGRESO</div>
+      <div class="project-container">
+        <div class="bar-chart" id="barChart"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TWO COL: Cost breakdown + Distributions -->
+  <div class="two-col">
+    <div>
+      <div class="section-title">PRINCIPALES EGRESOS</div>
+      <div class="project-container">
+        <div class="cost-breakdown" id="costBreakdown"></div>
+      </div>
+    </div>
+    <div>
+      <div class="section-title">DISTRIBUCIÓN DE SOCIOS</div>
+      <div class="project-container">
+        <div class="cost-breakdown" id="partnerDist"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANÁLISIS POR PROYECTO — 3 MÁRGENES -->
+  <div class="section-title">ANÁLISIS DETALLADO POR PROYECTO</div>
+  <div class="health-grid" id="healthGrid"></div>
+
+</div>
+  <div class="footer-text">REVELIER © 2026 — Datos en tiempo real desde Google Sheets</div>
+  <div class="footer-text" id="footerMeta">—</div>
+</div>
+<script>
+const CAT_INVENTORY   = [16,18,24,29];
+const CAT_TOOLS       = [19,33,44];
+const CAT_OCCASIONAL  = [23,27,30,31,32,34,37,38,39,43];
+const CAT_ATYPICAL    = [22];
+
+function fmt(n) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return '$' + Math.round(n).toLocaleString('es-CO');
+}
+function fmtPct(n) {
+  if (isNaN(n) || !isFinite(n)) return '—';
+  return (n*100).toFixed(1) + '%';
+}
+function setLoad(pct, txt) {
+  document.getElementById('loadingFill').style.width = pct + '%';
+  document.getElementById('loadingText').textContent = txt;
+}
+
+function classifyRow(r) {
+  const id = r.cliente;
+  if (CAT_INVENTORY.includes(id))  return 'inventory';
+  if (CAT_TOOLS.includes(id))      return 'tools';
+  if (CAT_OCCASIONAL.includes(id)) return 'occasional';
+  if (id !== null && id > 0)       return 'project';
+  return 'other';
+}
+
+function buildDashboard(meta, data) {
+  let revEntradas=0, revSalidas=0, invSalidas=0, toolsSalidas=0, occSalidas=0, distSalidas=0;
+  const projects = {};
+
+  data.forEach(r => {
+    const cat = classifyRow(r);
+    const isDistRow = r.concepto && r.concepto.toLowerCase().includes('ganancia socio');
+
+    if (cat === 'project' || cat === 'atypical') {
+      const key = r.cliente;
+      if (!projects[key]) projects[key] = { id:key, nombre: r.clienteNombre || ('ID '+key), entradas:0, salidas:0, distSalidas:0 };
+      if (isDistRow) {
+        // Distribución de socios — va al proyecto correspondiente
+        distSalidas += r.salidas;
+        projects[key].distSalidas += r.salidas;
+      } else {
+        revEntradas += r.entradas;
+        revSalidas  += r.salidas;
+        projects[key].entradas += r.entradas;
+        projects[key].salidas  += r.salidas;
+      }
+    } else if (cat === 'inventory')  { invSalidas   += r.salidas; }
+    else if (cat === 'tools')        { toolsSalidas += r.salidas; }
+    else if (cat === 'occasional')   { occSalidas   += r.salidas; }
+  });
+
+  const grossProfit     = revEntradas - revSalidas;
+  const afterInventory  = grossProfit - invSalidas;
+  const afterTools      = afterInventory - toolsSalidas;
+  const preDistribution = afterTools - occSalidas;
+  const partnerDist     = distSalidas;
+  const companyCapital  = preDistribution - partnerDist;
+
+  // KPIs
+  document.getElementById('kpiIngresos').textContent  = fmt(revEntradas);
+  document.getElementById('kpiIngSub').textContent    = 'Ingresos operacionales';
+  document.getElementById('kpiEgresos').textContent   = fmt(revSalidas + invSalidas + toolsSalidas + occSalidas);
+  document.getElementById('kpiEgrSub').textContent    = 'Total egresos operacionales';
+  document.getElementById('kpiUtilidad').textContent  = fmt(preDistribution);
+  const margin = revEntradas > 0 ? preDistribution / revEntradas : 0;
+  document.getElementById('kpiUtilSub').textContent   = 'Margen: ' + fmtPct(margin);
+  const numProjects = Object.keys(projects).length;
+  document.getElementById('kpiProyectos').textContent = numProjects;
+  document.getElementById('kpiProySub').textContent   = 'Con movimiento registrado';
+  document.getElementById('lastUpdate').textContent   = meta.fechaActualizacion;
+  document.getElementById('footerMeta').textContent   = meta.totalRegistros + ' transacciones · ' + numProjects + ' proyectos';
+
+  // P&L Table
+  const pnlRows = [
+    { level:'01', label:'Total Ingresos Operacionales', value: revEntradas,      cls:'main',    sign:1 },
+    { level:'02', label:'Costos Operativos Directos',   value: -revSalidas,      cls:'',        sign:-1 },
+    { level:'03', label:'UTILIDAD BRUTA OPERACIONAL',   value: grossProfit,      cls:'result',  sign:1, sep:true },
+    { level:'04', label:'Inversión en Inventario',      value: -invSalidas,      cls:'',        sign:-1 },
+    { level:'05', label:'Herramientas y Marketing',     value: -toolsSalidas,    cls:'',        sign:-1 },
+    { level:'06', label:'Gastos Ocasionales',           value: -occSalidas,      cls:'',        sign:-1 },
+    { level:'07', label:'UTILIDAD PRE-DISTRIBUCIÓN',    value: preDistribution,  cls:'result',  sign:1, sep:true },
+    { level:'08', label:'Distribución Socios (50%)',    value: -partnerDist,     cls:'',        sign:-1 },
+    { level:'09', label:'CAPITAL EMPRESA (50%)',        value: companyCapital,   cls:'final',   sign:1, sep:true },
+  ];
+  const tbl = document.getElementById('pnlTable');
+  tbl.innerHTML = `<thead><tr>
+    <th style="width:50px">Nivel</th>
+    <th>Concepto</th>
+    <th style="text-align:right">Valor</th>
+    <th style="text-align:right">Margen s/ingresos</th>
+  </tr></thead><tbody>` +
+  pnlRows.map(row => {
+    const valColor = row.value >= 0 ? 'pnl-positive' : 'pnl-negative';
+    const sepStyle = row.sep ? 'background:var(--surface2);' : '';
+    const marg = revEntradas > 0 ? fmtPct(Math.abs(row.value)/revEntradas) : '—';
+    return `<tr style="${sepStyle}">
+      <td><span class="pnl-level">${row.level}</span></td>
+      <td><span class="pnl-row-title ${row.cls}">${row.label}</span></td>
+      <td><span class="${row.cls === 'result' || row.cls === 'final' ? 'pnl-neutral' : valColor}">${fmt(Math.abs(row.value))}</span></td>
+      <td><span class="pnl-margin">${marg}</span></td>
+    </tr>`;
+  }).join('') + '</tbody>';
+
+  // Project table
+  const projArr = Object.values(projects).sort((a,b) => (b.entradas - b.salidas) - (a.entradas - a.salidas));
+  const tbody = document.getElementById('projectBody');
+  tbody.innerHTML = projArr.map(p => {
+    const net = p.entradas - p.salidas;
+    const m   = p.entradas > 0 ? net / p.entradas : 0;
+    const mCls = m > 0.4 ? 'margin-high' : m > 0.2 ? 'margin-mid' : 'margin-low';
+    return `<tr>
+      <td><span class="project-id">#${p.id}</span></td>
+      <td><span class="project-name">${p.nombre}</span></td>
+      <td><span class="amount-pos">${fmt(p.entradas)}</span></td>
+      <td><span class="amount-neg">${fmt(p.salidas)}</span></td>
+      <td><span class="amount-net">${fmt(net)}</span></td>
+      <td><span class="margin-badge ${mCls}">${fmtPct(m)}</span></td>
+    </tr>`;
+  }).join('');
+
+  // Bar chart top projects by revenue
+  const topProj = [...projArr].sort((a,b) => b.entradas - a.entradas).slice(0, 8);
+  const maxEnt  = Math.max(...topProj.map(p => p.entradas));
+  document.getElementById('barChart').innerHTML = topProj.map(p => `
+    <div class="bar-item">
+      <div class="bar-header">
+        <span class="bar-name">${p.nombre}</span>
+        <span class="bar-val">${fmt(p.entradas)}</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${maxEnt > 0 ? (p.entradas/maxEnt*100) : 0}%"></div>
+      </div>
+    </div>`).join('');
+
+  // Cost breakdown — top individual salidas
+  const costMap = {};
+  data.forEach(r => {
+    if (r.salidas > 0 && !r.concepto.toLowerCase().includes('ganancia socio')) {
+      const k = r.concepto.substring(0, 50);
+      costMap[k] = (costMap[k] || 0) + r.salidas;
+    }
+  });
+  const topCosts = Object.entries(costMap).sort((a,b) => b[1]-a[1]).slice(0, 10);
+  document.getElementById('costBreakdown').innerHTML = topCosts.map(([k,v]) =>
+    `<div class="cost-item"><span class="cost-name">${k}</span><span class="cost-amount">${fmt(v)}</span></div>`
+  ).join('');
+
+  // Partner distributions
+  const partnerMap = {};
+  data.forEach(r => {
+    if (r.concepto && r.concepto.toLowerCase().includes('ganancia socio')) {
+      const k = r.concepto.substring(0, 60);
+      partnerMap[k] = (partnerMap[k] || 0) + r.salidas;
+    }
+  });
+  const partnerArr = Object.entries(partnerMap).sort((a,b) => b[1]-a[1]);
+  document.getElementById('partnerDist').innerHTML = partnerArr.length > 0
+    ? partnerArr.map(([k,v]) =>
+        `<div class="cost-item"><span class="cost-name">${k}</span><span class="amount-net" style="font-family:var(--font-mono);font-size:0.82rem;">${fmt(v)}</span></div>`
+      ).join('')
+    : '<div class="cost-item"><span class="cost-name" style="color:var(--text-dim)">Sin distribuciones registradas</span></div>';
+
+  // Health grid — análisis detallado por proyecto con 3 márgenes
+  const projHealth = Object.values(projects).sort((a,b) => b.entradas - a.entradas);
+  document.getElementById('healthGrid').innerHTML = projHealth.map(p => {
+    const utilidadOp  = p.entradas - p.salidas;
+    const distProy    = p.distSalidas || 0;
+    const utilidadNet = utilidadOp - distProy;
+
+    const mOp  = p.entradas > 0 ? utilidadOp  / p.entradas : 0;
+    const mDist= p.entradas > 0 ? distProy     / p.entradas : 0;
+    const mNet = p.entradas > 0 ? utilidadNet  / p.entradas : 0;
+
+    const cls = mOp > 0.4 ? 'healthy' : mOp > 0.2 ? 'warning' : 'critical';
+
+    return `<div class="health-card ${cls}">
+      <div class="health-id">ID #${p.id}</div>
+      <div class="health-name">${p.nombre}</div>
+      <div class="health-row"><span class="health-key">Ingresos</span><span class="health-val" style="color:var(--teal)">${fmt(p.entradas)}</span></div>
+      <div class="health-row"><span class="health-key">Costos directos</span><span class="health-val" style="color:var(--red)">${fmt(p.salidas)}</span></div>
+      <div class="health-row"><span class="health-key">Distribución socios</span><span class="health-val" style="color:var(--gold)">${fmt(distProy)}</span></div>
+      <div style="border-top:1px solid rgba(255,255,255,0.06);margin:12px 0 10px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div style="flex:1;min-width:90px;background:var(--surface2);border-radius:8px;padding:8px 10px">
+          <div style="font-size:0.6rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Margen Operacional</div>
+          <div style="font-family:var(--font-mono);font-size:1.05rem;color:var(--teal)">${fmtPct(mOp)}</div>
+          <div style="font-size:0.68rem;color:var(--text-dim);margin-top:1px">${fmt(utilidadOp)}</div>
+        </div>
+        <div style="flex:1;min-width:90px;background:var(--surface2);border-radius:8px;padding:8px 10px">
+          <div style="font-size:0.6rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Repartición Socios</div>
+          <div style="font-family:var(--font-mono);font-size:1.05rem;color:var(--gold)">${fmtPct(mDist)}</div>
+          <div style="font-size:0.68rem;color:var(--text-dim);margin-top:1px">${fmt(distProy)}</div>
+        </div>
+        <div style="flex:1;min-width:90px;background:var(--surface2);border-radius:8px;padding:8px 10px">
+          <div style="font-size:0.6rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Margen Neto Final</div>
+          <div style="font-family:var(--font-mono);font-size:1.05rem;color:${mNet >= 0 ? '#9b8fff' : 'var(--red)'}">${fmtPct(mNet)}</div>
+          <div style="font-size:0.68rem;color:var(--text-dim);margin-top:1px">${fmt(utilidadNet)}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+
+// ── FILTROS ──────────────────────────────────────────────
+let _lastMeta = {};
+
+// Parsea "yyyy-MM-dd" a Date local sin shifts de timezone
+function parseDate(str) {
+  if (!str) return null;
+  const p = String(str).split('-');
+  if (p.length !== 3) return null;
+  const d = new Date(+p[0], +p[1]-1, +p[2]);
+  return isNaN(d) ? null : d;
+}
+
+// Retorna Date de hoy basado en la fecha que envía el servidor (evita problemas de TZ)
+function getToday() {
+  if (_lastMeta.fechaHoy) {
+    const d = parseDate(_lastMeta.fechaHoy);
+    if (d) return d;
+  }
+  return new Date();
+}
+
+function populateFilterOptions(data) {
+  const projects = {};
+  const clients  = {};
+  data.forEach(r => {
+    if (r.cliente && r.cliente > 0) {
+      projects[r.cliente] = true;
+      if (r.clienteNombre) clients[r.clienteNombre] = true;
+    }
+  });
+
+  const projSel = document.getElementById('filterProject');
+  const cliSel  = document.getElementById('filterClient');
+  const prevProj = projSel.value;
+  const prevCli  = cliSel.value;
+
+  projSel.innerHTML = '<option value="all">Todos</option>' +
+    Object.keys(projects).map(Number).sort((a,b)=>a-b).map(id => {
+      const nombre = data.find(r => r.cliente == id)?.clienteNombre || '';
+      return `<option value="${id}">${id}${nombre ? ' — ' + nombre : ''}</option>`;
+    }).join('');
+
+  cliSel.innerHTML = '<option value="all">Todos</option>' +
+    Object.keys(clients).sort().map(n =>
+      `<option value="${n}">${n}</option>`
+    ).join('');
+
+  if (prevProj && prevProj !== 'all') projSel.value = prevProj;
+  if (prevCli  && prevCli  !== 'all') cliSel.value  = prevCli;
+}
+
+function getPeriodRange(period) {
+  const now = getToday();
+  const y   = now.getFullYear();
+  const m   = now.getMonth(); // 0-based: 0=Enero … 11=Diciembre
+
+  switch(period) {
+    case 'this_year':
+      return [new Date(y, 0, 1), new Date(y, 11, 31)];
+
+    case 'prev_year':
+      return [new Date(y-1, 0, 1), new Date(y-1, 11, 31)];
+
+    case 'this_semester':
+      // Sem 1: Ene–Jun | Sem 2: Jul–Dic
+      return m < 6
+        ? [new Date(y, 0, 1),  new Date(y, 5, 30)]
+        : [new Date(y, 6, 1),  new Date(y, 11, 31)];
+
+    case 'this_quarter': {
+      const q = Math.floor(m / 3); // 0,1,2,3
+      return [new Date(y, q*3, 1), new Date(y, q*3+3, 0)]; // día 0 del siguiente mes = último del actual
+    }
+
+    case 'this_month':
+      return [new Date(y, m, 1), new Date(y, m+1, 0)];
+
+    case 'prev_month':
+      return [new Date(y, m-1, 1), new Date(y, m, 0)];
+
+    case 'last_full_semester': {
+      // Si estamos en Sem2 → devolver Sem1 de este año
+      // Si estamos en Sem1 → devolver Sem2 del año pasado
+      if (m >= 6) return [new Date(y, 0, 1),   new Date(y, 5, 30)];
+      else        return [new Date(y-1, 6, 1),  new Date(y-1, 11, 31)];
+    }
+
+    case 'last_full_quarter': {
+      const q = Math.floor(m / 3);
+      if (q > 0) return [new Date(y, (q-1)*3, 1), new Date(y, q*3, 0)];
+      else       return [new Date(y-1, 9, 1),      new Date(y-1, 11, 31)]; // Q4 año anterior
+    }
+
+    default: return null;
+  }
+}
+
+function applyFilters(data) {
+  const period  = document.getElementById('filterPeriod').value;
+  const from    = document.getElementById('filterFrom').value;
+  const to      = document.getElementById('filterTo').value;
+  const projId  = document.getElementById('filterProject').value;
+  const cliName = document.getElementById('filterClient').value;
+
+  // Mostrar/ocultar rango personalizado
+  document.getElementById('customRangeGroup').style.display =
+    period === 'custom' ? 'flex' : 'none';
+
+  let filtered = [...data];
+
+  // ── Filtro de fecha ──────────────────────────────────────
+  let dateFrom = null, dateTo = null;
+
+  if (period === 'custom') {
+    // Input type="date" siempre devuelve yyyy-MM-dd
+    if (from) { const p=from.split('-'); dateFrom=new Date(+p[0],+p[1]-1,+p[2],0,0,0); }
+    if (to)   { const p=to.split('-');   dateTo  =new Date(+p[0],+p[1]-1,+p[2],23,59,59); }
+  } else if (period !== 'all') {
+    const range = getPeriodRange(period);
+    if (range) { dateFrom = range[0]; dateTo = range[1]; }
+  }
+
+  if (dateFrom || dateTo) {
+    filtered = filtered.filter(r => {
+      const d = parseDate(r.fecha); // r.fecha siempre es yyyy-MM-dd del Apps Script
+      if (!d) return false;
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo   && d > dateTo)   return false;
+      return true;
+    });
+  }
+
+  // ── Filtro por proyecto ──────────────────────────────────
+  if (projId !== 'all') {
+    filtered = filtered.filter(r => String(r.cliente) === String(projId));
+  }
+
+  // ── Filtro por cliente ───────────────────────────────────
+  if (cliName !== 'all') {
+    filtered = filtered.filter(r => r.clienteNombre === cliName);
+  }
+
+  // ── Badge de estado ──────────────────────────────────────
+  const isFiltered = period !== 'all' || projId !== 'all' || cliName !== 'all';
+  document.getElementById('filterStatus').style.display = isFiltered ? 'flex' : 'none';
+  if (isFiltered) {
+    document.getElementById('filterBadge').textContent =
+      filtered.length + ' / ' + data.length + ' registros';
+  }
+
+  return filtered;
+}
+
+function resetFilters() {
+  document.getElementById('filterPeriod').value  = 'all';
+  document.getElementById('filterFrom').value    = '';
+  document.getElementById('filterTo').value      = '';
+  document.getElementById('filterProject').value = 'all';
+  document.getElementById('filterClient').value  = 'all';
+  document.getElementById('customRangeGroup').style.display = 'none';
+  document.getElementById('filterStatus').style.display     = 'none';
+  applyFiltersAndRebuild();
+}
+
+function applyFiltersAndRebuild() {
+  const filtered = applyFilters(_allData);
+  buildDashboard(
+    { fechaActualizacion: _lastMeta.fechaActualizacion, totalRegistros: filtered.length },
+    filtered
+  );
+}
+// ─────────────────────────────────────────────────────────
+
+
+const API_URL = 'https://script.google.com/macros/s/AKfycbxDy_TE59Oc8dkmR5PgkyOwDf6ALzFMLPKERILZblPPH9DS2gQDKJa5BTlkzqu1aFph/exec';
+let _allData  = [];
+
+// ── DATE UTILS ───────────────────────────────────────────────
+function parseDate(str) {
+  if (!str) return null;
+  const p = String(str).split('-');
+  if (p.length !== 3) return null;
+  const d = new Date(+p[0], +p[1]-1, +p[2]);
+  return isNaN(d) ? null : d;
+}
+function getToday() {
+  if (_lastMeta.fechaHoy) { const d = parseDate(_lastMeta.fechaHoy); if (d) return d; }
+  return new Date();
+}
+
+// ── FILTER LOGIC ────────────────────────────────────────────
+function populateFilterOptions(data) {
+  const projects = {}, clients = {};
+  data.forEach(r => {
+    if (r.cliente && r.cliente > 0) {
+      projects[r.cliente] = true;
+      if (r.clienteNombre) clients[r.clienteNombre] = true;
+    }
+  });
+  const projSel = document.getElementById('filterProject');
+  const cliSel  = document.getElementById('filterClient');
+  const prevProj = projSel.value, prevCli = cliSel.value;
+  projSel.innerHTML = '<option value="all">Todos</option>' +
+    Object.keys(projects).map(Number).sort((a,b)=>a-b).map(id => {
+      const n = data.find(r=>r.cliente==id)?.clienteNombre||'';
+      return `<option value="${id}">${id}${n?' — '+n:''}</option>`;
+    }).join('');
+  cliSel.innerHTML = '<option value="all">Todos</option>' +
+    Object.keys(clients).sort().map(n=>`<option value="${n}">${n}</option>`).join('');
+  if (prevProj && prevProj!=='all') projSel.value = prevProj;
+  if (prevCli  && prevCli !=='all') cliSel.value  = prevCli;
+}
+
+function getPeriodRange(period) {
+  const now=getToday(), y=now.getFullYear(), m=now.getMonth();
+  switch(period) {
+    case 'this_year':           return [new Date(y,0,1), new Date(y,11,31)];
+    case 'prev_year':           return [new Date(y-1,0,1), new Date(y-1,11,31)];
+    case 'this_semester':       return m<6 ? [new Date(y,0,1),new Date(y,5,30)] : [new Date(y,6,1),new Date(y,11,31)];
+    case 'this_quarter':        { const q=Math.floor(m/3); return [new Date(y,q*3,1),new Date(y,q*3+3,0)]; }
+    case 'this_month':          return [new Date(y,m,1), new Date(y,m+1,0)];
+    case 'prev_month':          return [new Date(y,m-1,1), new Date(y,m,0)];
+    case 'last_full_semester':  return m>=6 ? [new Date(y,0,1),new Date(y,5,30)] : [new Date(y-1,6,1),new Date(y-1,11,31)];
+    case 'last_full_quarter':   { const q=Math.floor(m/3); return q>0 ? [new Date(y,(q-1)*3,1),new Date(y,q*3,0)] : [new Date(y-1,9,1),new Date(y-1,11,31)]; }
+    default: return null;
+  }
+}
+
+function applyFilters(data) {
+  const period  = document.getElementById('filterPeriod').value;
+  const from    = document.getElementById('filterFrom').value;
+  const to      = document.getElementById('filterTo').value;
+  const projId  = document.getElementById('filterProject').value;
+  const cliName = document.getElementById('filterClient').value;
+  document.getElementById('customRangeGroup').style.display = period==='custom' ? 'flex' : 'none';
+  let filtered = [...data];
+  let dateFrom=null, dateTo=null;
+  if (period==='custom') {
+    if (from) { const p=from.split('-'); dateFrom=new Date(+p[0],+p[1]-1,+p[2]); }
+    if (to)   { const p=to.split('-');   dateTo  =new Date(+p[0],+p[1]-1,+p[2],23,59,59); }
+  } else if (period!=='all') {
+    const range=getPeriodRange(period); if (range) { dateFrom=range[0]; dateTo=range[1]; }
+  }
+  if (dateFrom||dateTo) {
+    filtered=filtered.filter(r=>{
+      const d=parseDate(r.fecha); if(!d) return false;
+      if(dateFrom&&d<dateFrom) return false;
+      if(dateTo  &&d>dateTo)   return false;
+      return true;
+    });
+  }
+  if (projId!=='all')  filtered=filtered.filter(r=>String(r.cliente)===String(projId));
+  if (cliName!=='all') filtered=filtered.filter(r=>r.clienteNombre===cliName);
+  const isFiltered = period!=='all'||projId!=='all'||cliName!=='all';
+  document.getElementById('filterStatus').style.display = isFiltered?'flex':'none';
+  if (isFiltered) document.getElementById('filterBadge').textContent = filtered.length+' / '+data.length+' registros';
+  return filtered;
+}
+
+function resetFilters() {
+  ['filterPeriod','filterFrom','filterTo','filterProject','filterClient'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value=el.tagName==='SELECT'?'all':'';
+  });
+  document.getElementById('customRangeGroup').style.display='none';
+  document.getElementById('filterStatus').style.display='none';
+  applyFiltersAndRebuild();
+}
+
+function applyFiltersAndRebuild() {
+  const filtered=applyFilters(_allData);
+  buildDashboard({fechaActualizacion:_lastMeta.fechaActualizacion,totalRegistros:filtered.length},filtered);
+}
+
+// ── DATA LOADER ─────────────────────────────────────────────
+function setLoad(p,t) {
+  document.getElementById('loadingFill').style.width=p+'%';
+  document.getElementById('loadingText').textContent=t;
+}
+
+function processData(json) {
+  if (json.error) {
+    setLoad(100, 'Error');
+    document.getElementById('loadingScreen').classList.add('hidden');
+    document.querySelector('.main').insertAdjacentHTML('afterbegin',
+      '<div class="error-card" style="margin-bottom:24px;">⚠️ ' + json.error + '</div>');
+    return;
+  }
+  _allData  = json.data;
+  _lastMeta = json.meta;
+  setLoad(80, 'Procesando datos...');
+  populateFilterOptions(json.data);
+  var filtered = applyFilters(json.data);
+  buildDashboard({ fechaActualizacion: json.meta.fechaActualizacion, totalRegistros: filtered.length }, filtered);
+  setLoad(100, 'Listo');
+  setTimeout(function() { document.getElementById('loadingScreen').classList.add('hidden'); }, 400);
+}
+
+function loadData() {
+  setLoad(20, 'Conectando con Google Sheets...');
+  var cbName = 'rcb' + Date.now();
+  var script = document.createElement('script');
+  var done   = false;
+
+  window[cbName] = function(json) {
+    done = true;
+    delete window[cbName];
+    if (script.parentNode) document.body.removeChild(script);
+    processData(json);
+  };
+
+  script.onerror = function() {
+    if (done) return;
+    done = true;
+    delete window[cbName];
+    if (script.parentNode) document.body.removeChild(script);
+    setLoad(100, 'Error de conexión');
+    document.getElementById('loadingScreen').classList.add('hidden');
+    document.querySelector('.main').insertAdjacentHTML('afterbegin',
+      '<div class="error-card" style="margin-bottom:24px;">⚠️ No se pudo conectar con Google Sheets. Verifica tu conexión a internet y los permisos del Apps Script.</div>');
+  };
+
+  setTimeout(function() { if (!done) { done = true; script.onerror(); } }, 20000);
+
+  script.src = API_URL + '?callback=' + cbName + '&authuser=0&t=' + Date.now();
+  document.body.appendChild(script);
+}
+
+// Global error handler - shows errors visibly
+window.onerror = function(msg, src, line, col, err) {
+  var el = document.getElementById('loadingScreen');
+  if (el) el.classList.add('hidden');
+  var main = document.querySelector('.main');
+  if (main) {
+    main.insertAdjacentHTML('afterbegin',
+      '<div style="background:rgba(255,0,0,0.2);border:1px solid red;padding:16px;margin:16px;color:#ff6b6b;font-family:monospace;font-size:13px;border-radius:8px;">' +
+      '❌ JS ERROR line ' + line + ': ' + msg + '</div>');
+  }
+  console.error('REVELIER ERROR:', msg, 'line:', line, err);
+  return false;
+};
+
+try {
+  loadData();
+} catch(e) {
+  console.error('loadData failed:', e);
+  document.getElementById('loadingText').textContent = 'Error: ' + e.message;
+}
+setInterval(function() { try { loadData(); } catch(e) {} }, 5 * 60 * 1000);
+
+</script>
+</body>
+</html>
