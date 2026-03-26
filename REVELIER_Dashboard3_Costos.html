@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REVELIER — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0a12;
+    --surface: #171222;
+    --surface2: #1e1830;
+    --border: #2e2840;
+    --purple: #9b7fe8;
+    --purple-light: #b99ff8;
+    --teal: #3ecfb2;
+    --gold: #d4a843;
+    --red: #e05a6b;
+    --text: #f0ecf8;
+    --text-dim: #7a6e99;
+    --text-mid: #b0a8c8;
+    --font-display: 'Bebas Neue', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+    --accent: #9b7fe8;
+    --accent-rgb: 155,127,232;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font-body); min-height:100vh; }
+
+  .loading-screen {
+    position:fixed; inset:0; background:var(--bg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    z-index:100; transition:opacity 0.5s;
+  }
+  .loading-screen.hidden { opacity:0; pointer-events:none; }
+  .loading-logo { font-family:var(--font-display); font-size:4rem; color:var(--purple); letter-spacing:8px; margin-bottom:16px; }
+  .loading-bar { width:200px; height:2px; background:var(--border); border-radius:2px; overflow:hidden; }
+  .loading-fill { height:100%; background:var(--purple); width:0%; transition:width 0.3s; }
+  .loading-text { font-size:0.75rem; color:var(--text-dim); margin-top:12px; letter-spacing:2px; text-transform:uppercase; }
+
+  .header {
+    background:linear-gradient(135deg, #130f1c 0%, #171222 100%);
+    border-bottom:1px solid var(--border);
+    padding:24px 40px; display:flex; align-items:center; justify-content:space-between;
+  }
+  .logo { font-family:var(--font-display); font-size:2.2rem; letter-spacing:4px; color:var(--purple); }
+  .header-sub { font-size:0.7rem; color:var(--text-dim); letter-spacing:2px; margin-top:2px; }
+  .live-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    background:rgba(155,127,232,0.1); border:1px solid rgba(155,127,232,0.3);
+    border-radius:20px; padding:4px 12px; font-size:0.7rem;
+    color:var(--purple); text-transform:uppercase; letter-spacing:1px; margin-top:6px;
+  }
+  .live-dot { width:6px; height:6px; border-radius:50%; background:var(--purple); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .header-meta { text-align:right; }
+  .header-meta .value { font-family:var(--font-mono); font-size:0.85rem; color:var(--purple); margin-top:2px; }
+
+  .main { padding:32px 40px; max-width:1400px; margin:0 auto; }
+
+  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:32px; }
+  .kpi-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:20px 24px; position:relative; overflow:hidden;
+  }
+  .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
+  .kpi-card.purple::before { background:var(--purple); }
+  .kpi-card.teal::before   { background:var(--teal); }
+  .kpi-card.gold::before   { background:var(--gold); }
+  .kpi-card.red::before    { background:var(--red); }
+  .kpi-label { font-size:0.65rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:2px; margin-bottom:8px; }
+  .kpi-value { font-family:var(--font-mono); font-size:1.5rem; font-weight:500; }
+  .kpi-value.purple { color:var(--purple); }
+  .kpi-value.teal   { color:var(--teal); }
+  .kpi-value.gold   { color:var(--gold); }
+  .kpi-value.red    { color:var(--red); }
+  .kpi-sub { font-size:0.72rem; color:var(--text-dim); margin-top:5px; }
+
+  .section-title {
+    font-family:var(--font-display); font-size:1.3rem; letter-spacing:3px;
+    color:var(--purple); margin-bottom:14px; padding-bottom:8px;
+    border-bottom:1px solid var(--border);
+  }
+
+  .three-col { display:grid; grid-template-columns:1fr 1fr 1fr; gap:18px; margin-bottom:32px; }
+  .two-col   { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:32px; }
+
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .panel-header {
+    background:var(--surface2); padding:12px 18px;
+    font-size:0.68rem; color:var(--text-dim); text-transform:uppercase;
+    letter-spacing:2px; border-bottom:1px solid var(--border);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .panel-total { font-family:var(--font-mono); color:var(--red); font-size:0.8rem; }
+
+  /* Category breakdown */
+  .cat-list { padding:4px 0; }
+  .cat-item { padding:10px 18px; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .cat-item:last-child { border-bottom:none; }
+  .cat-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .cat-name { font-size:0.83rem; color:var(--text-mid); }
+  .cat-amount { font-family:var(--font-mono); font-size:0.83rem; color:var(--red); }
+  .cat-bar-track { background:var(--surface2); border-radius:2px; height:4px; overflow:hidden; }
+  .cat-bar-fill { height:100%; border-radius:2px; transition:width 1s ease; }
+  .cat-pct { font-size:0.68rem; color:var(--text-dim); margin-top:3px; text-align:right; }
+
+  /* Pie-like donut using CSS */
+  .donut-container { padding:20px; display:flex; align-items:center; gap:24px; }
+  .donut-legend { flex:1; }
+  .legend-item { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .legend-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .legend-label { font-size:0.78rem; color:var(--text-mid); flex:1; }
+  .legend-val { font-family:var(--font-mono); font-size:0.75rem; color:var(--text); }
+  .legend-pct { font-size:0.68rem; color:var(--text-dim); margin-left:4px; }
+
+  /* Partner table */
+  .partner-table { width:100%; border-collapse:collapse; }
+  .partner-table th {
+    background:var(--surface2); padding:10px 18px;
+    font-size:0.65rem; color:var(--text-dim); text-transform:uppercase;
+    letter-spacing:1.5px; border-bottom:1px solid var(--border);
+  }
+  .partner-table td { padding:10px 18px; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.83rem; }
+  .partner-table tr:last-child td { border-bottom:none; }
+  .partner-table td:last-child { text-align:right; font-family:var(--font-mono); }
+
+  /* Transaction log */
+  .tx-table { width:100%; border-collapse:collapse; }
+  .tx-table th {
+    background:var(--surface2); padding:9px 16px;
+    font-size:0.62rem; color:var(--text-dim); text-transform:uppercase;
+    letter-spacing:1.5px; border-bottom:1px solid var(--border);
+  }
+  .tx-table td { padding:9px 16px; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.78rem; }
+  .tx-table tr:last-child td { border-bottom:none; }
+  .tx-table tr:hover td { background:rgba(155,127,232,0.04); }
+  .tx-concepto { color:var(--text-mid); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tx-date { font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); }
+  .tx-in  { font-family:var(--font-mono); color:var(--teal); }
+  .tx-out { font-family:var(--font-mono); color:var(--red); }
+  .tx-cat { display:inline-block; padding:2px 6px; border-radius:4px; font-size:0.65rem; }
+  .cat-op    { background:rgba(62,207,178,0.1); color:var(--teal); }
+  .cat-inv   { background:rgba(213,168,67,0.1); color:var(--gold); }
+  .cat-tools { background:rgba(155,127,232,0.1); color:var(--purple); }
+  .cat-occ   { background:rgba(224,90,107,0.1); color:var(--red); }
+  .cat-dist  { background:rgba(255,255,255,0.06); color:var(--text-dim); }
+
+  .footer { padding:24px 40px; border-top:1px solid var(--border); display:flex; justify-content:space-between; }
+  .footer-text { font-size:0.7rem; color:var(--text-dim); }
+  .error-card { background:rgba(224,90,107,0.1); border:1px solid var(--red); border-radius:8px; padding:16px 20px; color:var(--red); font-size:0.85rem; }
+
+  /* ── FILTROS ── */
+  .filter-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 40px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .filter-group { display:flex; align-items:center; gap:8px; }
+  .filter-label {
+    font-size:0.65rem; color:var(--text-dim); text-transform:uppercase;
+    letter-spacing:1.5px; white-space:nowrap;
+  }
+  .filter-select, .filter-input {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--font-body); font-size: 0.8rem;
+    padding: 6px 12px; border-radius: 6px; outline: none; cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .filter-select:hover, .filter-input:hover,
+  .filter-select:focus, .filter-input:focus { border-color: var(--accent); }
+  .filter-input { width: 130px; }
+  .filter-sep {
+    width: 1px; height: 28px; background: var(--border); margin: 0 4px;
+  }
+  .filter-active-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    background: rgba(var(--accent-rgb),0.12); border:1px solid rgba(var(--accent-rgb),0.35);
+    border-radius:20px; padding:3px 10px; font-size:0.68rem;
+    color:var(--accent); letter-spacing:1px;
+  }
+  .filter-clear {
+    background:none; border:1px solid var(--border); color:var(--text-dim);
+    font-size:0.7rem; padding:5px 12px; border-radius:6px; cursor:pointer;
+    font-family:var(--font-body); transition: all 0.2s; white-space:nowrap;
+  }
+  .filter-clear:hover { border-color:var(--accent); color:var(--accent); }
+</style>
+</head>
+<body>
+<div class="loading-screen" id="loadingScreen">
+  <div class="loading-logo">REVELIER</div>
+  <div class="loading-bar"><div class="loading-fill" id="loadingFill"></div></div>
+  <div class="loading-text" id="loadingText">Cargando análisis de costos...</div>
+</div>
+
+<div class="header">
+  <div>
+    <div class="logo">REVELIER</div>
+    <div class="header-sub">ANÁLISIS DE COSTOS Y DISTRIBUCIÓN DE SOCIOS</div>
+  </div>
+  <div class="header-meta">
+    <div style="font-size:0.7rem;color:var(--text-dim);letter-spacing:2px">Última actualización</div>
+    <div class="value" id="lastUpdate">—</div>
+    <div class="live-badge"><span class="live-dot"></span>En vivo · Google Sheets</div>
+  </div>
+</div>
+
+<div class="main">
+  <!-- FILTROS -->
+  <div class="filter-bar" id="filterBar">
+    <!-- Filtro temporal -->
+    <div class="filter-group">
+      <span class="filter-label">Período</span>
+      <select class="filter-select" id="filterPeriod" onchange="applyFiltersAndRebuild()">
+        <option value="all">Todo el historial</option>
+        <option value="this_year">Este año</option>
+        <option value="prev_year">Año anterior</option>
+        <option value="this_semester">Este semestre</option>
+        <option value="this_quarter">Este trimestre</option>
+        <option value="this_month">Este mes</option>
+        <option value="prev_month">Mes anterior</option>
+        <option value="last_full_semester">Último semestre completo</option>
+        <option value="last_full_quarter">Último trimestre completo</option>
+        <option value="custom">Rango personalizado...</option>
+      </select>
+    </div>
+
+    <!-- Rango manual (visible solo cuando period=custom) -->
+    <div class="filter-group" id="customRangeGroup" style="display:none">
+      <span class="filter-label">Desde</span>
+      <input type="date" class="filter-input" id="filterFrom" onchange="applyFiltersAndRebuild()">
+      <span class="filter-label">Hasta</span>
+      <input type="date" class="filter-input" id="filterTo" onchange="applyFiltersAndRebuild()">
+    </div>
+
+    <div class="filter-sep"></div>
+
+    <!-- Filtro por proyecto / cliente -->
+    <div class="filter-group">
+      <span class="filter-label">Proyecto</span>
+      <select class="filter-select" id="filterProject" onchange="applyFiltersAndRebuild()">
+        <option value="all">Todos</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Cliente</span>
+      <select class="filter-select" id="filterClient" onchange="applyFiltersAndRebuild()">
+        <option value="all">Todos</option>
+      </select>
+    </div>
+
+    <div class="filter-sep"></div>
+
+    <!-- Estado / badge activo + reset -->
+    <div class="filter-group" id="filterStatus" style="display:none">
+      <span class="filter-active-badge" id="filterBadge">Filtro activo</span>
+    </div>
+    <button class="filter-clear" onclick="resetFilters()">✕ Limpiar filtros</button>
+  </div>
+
+
+  <!-- KPIs -->
+  <div class="kpi-row">
+    <div class="kpi-card purple"><div class="kpi-label">Total Egresos</div><div class="kpi-value purple" id="kTotalEgr">—</div><div class="kpi-sub" id="kTotS">—</div></div>
+    <div class="kpi-card red">   <div class="kpi-label">Costos Directos</div><div class="kpi-value red" id="kDirCost">—</div><div class="kpi-sub" id="kDirS">—</div></div>
+    <div class="kpi-card gold">  <div class="kpi-label">Distribución Socios</div><div class="kpi-value gold" id="kDist">—</div><div class="kpi-sub" id="kDistS">—</div></div>
+    <div class="kpi-card teal">  <div class="kpi-label">Inversión / Herramientas</div><div class="kpi-value teal" id="kInvTool">—</div><div class="kpi-sub" id="kInvS">—</div></div>
+  </div>
+
+  <!-- Three col: cost categories -->
+  <div class="section-title">ESTRUCTURA DE EGRESOS POR CATEGORÍA</div>
+  <div class="three-col">
+    <div class="panel">
+      <div class="panel-header"><span>Costos Operativos</span><span class="panel-total" id="opTotal">—</span></div>
+      <div class="cat-list" id="opList"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span>Inventario + Herramientas</span><span class="panel-total" id="invToolTotal">—</span></div>
+      <div class="cat-list" id="invToolList"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span>Gastos Ocasionales</span><span class="panel-total" id="occTotal">—</span></div>
+      <div class="cat-list" id="occList"></div>
+    </div>
+  </div>
+
+  <!-- Two col: partner dist + donut -->
+  <div class="two-col">
+    <div>
+      <div class="section-title">DISTRIBUCIÓN A SOCIOS — DETALLE</div>
+      <div class="panel">
+        <table class="partner-table" id="partnerTable">
+          <thead><tr><th>Concepto</th><th>Proyecto</th><th>Fecha</th><th>Monto</th></tr></thead>
+          <tbody id="partnerBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <div class="section-title">COMPOSICIÓN DE EGRESOS</div>
+      <div class="panel">
+        <div class="donut-container">
+          <div class="donut-legend" id="donutLegend"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transaction log -->
+  <div class="section-title">REGISTRO DE TRANSACCIONES</div>
+  <div class="panel">
+    <table class="tx-table" id="txTable">
+      <thead><tr><th>Fecha</th><th>Concepto</th><th>Proyecto</th><th>Categoría</th><th style="text-align:right">Entradas</th><th style="text-align:right">Salidas</th></tr></thead>
+      <tbody id="txBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<div class="footer">
+  <div class="footer-text">REVELIER © 2026 — Análisis de costos en tiempo real</div>
+  <div class="footer-text" id="footerMeta">—</div>
+</div>
+<script>
+const CAT_INVENTORY  = [16,18,24,29];
+const CAT_TOOLS      = [19,33,44];
+const CAT_OCCASIONAL = [23,27,30,31,32,34,37,38,39,43];
+const CAT_ATYPICAL   = [22];
+
+const CAT_COLORS = {
+  'Costos Directos':         '#e05a6b',
+  'Inventario':              '#d4a843',
+  'Herramientas/Marketing':  '#9b7fe8',
+  'Gastos Ocasionales':      '#5ba8e0',
+  'Distribución Socios':     '#3ecfb2',
+};
+
+function fmt(n) { return '$' + Math.round(n).toLocaleString('es-CO'); }
+function fmtPct(n) { return isFinite(n) ? (n*100).toFixed(1)+'%' : '—'; }
+function setLoad(p,t){ document.getElementById('loadingFill').style.width=p+'%'; document.getElementById('loadingText').textContent=t; }
+
+function classifyRow(r) {
+  const id = r.cliente;
+  if (CAT_INVENTORY.includes(id))  return 'inventory';
+  if (CAT_TOOLS.includes(id))      return 'tools';
+  if (CAT_OCCASIONAL.includes(id)) return 'occasional';
+  if (r.concepto && r.concepto.toLowerCase().includes('ganancia socio')) return 'distribution';
+  if (id !== null && id > 0)       return 'project';
+  return 'other';
+}
+
+function buildCatList(containerId, items, max, color) {
+  const maxVal = Math.max(...items.map(i=>i.val), 1);
+  document.getElementById(containerId).innerHTML = items.slice(0,8).map(item => `
+    <div class="cat-item">
+      <div class="cat-top">
+        <span class="cat-name">${item.label.substring(0,45)}</span>
+        <span class="cat-amount">${fmt(item.val)}</span>
+      </div>
+      <div class="cat-bar-track">
+        <div class="cat-bar-fill" style="width:${max>0?(item.val/max*100):0}%;background:${color}"></div>
+      </div>
+      <div class="cat-pct">${fmtPct(max>0?item.val/max:0)}</div>
+    </div>`).join('') || '<div style="padding:16px;font-size:0.8rem;color:var(--text-dim)">Sin datos</div>';
+}
+
+function buildDashboard(meta, data) {
+  let dirSal=0, invSal=0, toolsSal=0, occSal=0, distSal=0;
+  const dirMap={}, invMap={}, toolsMap={}, occMap={};
+
+  data.forEach(r => {
+    const cat = classifyRow(r);
+    if (r.salidas === 0) return;
+    const k = r.concepto.substring(0,50);
+    if (cat==='project' || cat==='atypical') {
+      if (!r.concepto.toLowerCase().includes('ganancia socio')) {
+        dirSal += r.salidas;
+        dirMap[k] = (dirMap[k]||0) + r.salidas;
+      } else {
+        distSal += r.salidas;
+      }
+    } else if (cat==='inventory')    { invSal   += r.salidas; invMap[k]   = (invMap[k]||0)   + r.salidas; }
+    else if (cat==='tools')          { toolsSal  += r.salidas; toolsMap[k] = (toolsMap[k]||0) + r.salidas; }
+    else if (cat==='occasional')     { occSal    += r.salidas; occMap[k]   = (occMap[k]||0)   + r.salidas; }
+    else if (cat==='distribution')   { distSal   += r.salidas; }
+  });
+
+  const totalEgr = dirSal + invSal + toolsSal + occSal + distSal;
+
+  // KPIs
+  document.getElementById('kTotalEgr').textContent = fmt(totalEgr);
+  document.getElementById('kTotS').textContent = '100% egresos totales';
+  document.getElementById('kDirCost').textContent = fmt(dirSal);
+  document.getElementById('kDirS').textContent = fmtPct(totalEgr>0?dirSal/totalEgr:0) + ' del total';
+  document.getElementById('kDist').textContent = fmt(distSal);
+  document.getElementById('kDistS').textContent = fmtPct(totalEgr>0?distSal/totalEgr:0) + ' del total';
+  document.getElementById('kInvTool').textContent = fmt(invSal+toolsSal);
+  document.getElementById('kInvS').textContent = fmtPct(totalEgr>0?(invSal+toolsSal)/totalEgr:0) + ' del total';
+  document.getElementById('lastUpdate').textContent = meta.fechaActualizacion;
+  document.getElementById('footerMeta').textContent = meta.totalRegistros + ' transacciones totales';
+
+  // Totals
+  document.getElementById('opTotal').textContent = fmt(dirSal);
+  document.getElementById('invToolTotal').textContent = fmt(invSal+toolsSal);
+  document.getElementById('occTotal').textContent = fmt(occSal);
+
+  // Category lists
+  const toArr = map => Object.entries(map).map(([label,val])=>({label,val})).sort((a,b)=>b.val-a.val);
+  buildCatList('opList',      toArr(dirMap),   dirSal,   '#e05a6b');
+  buildCatList('invToolList', [...toArr(invMap),...toArr(toolsMap)].sort((a,b)=>b.val-a.val), invSal+toolsSal, '#d4a843');
+  buildCatList('occList',     toArr(occMap),   occSal,   '#5ba8e0');
+
+  // Partner distributions detail
+  const distRows = data.filter(r => r.concepto && r.concepto.toLowerCase().includes('ganancia socio') && r.salidas > 0)
+    .sort((a,b) => b.salidas - a.salidas);
+  document.getElementById('partnerBody').innerHTML = distRows.length > 0
+    ? distRows.map(r => `<tr>
+        <td class="tx-concepto">${r.concepto}</td>
+        <td style="color:var(--text-dim);font-size:0.78rem">${r.clienteNombre || ('ID '+r.cliente)}</td>
+        <td class="tx-date">${r.fecha || '—'}</td>
+        <td style="text-align:right;font-family:var(--font-mono);color:var(--gold)">${fmt(r.salidas)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" style="padding:16px;color:var(--text-dim);font-size:0.8rem">Sin distribuciones registradas</td></tr>';
+
+  // Donut legend
+  const composition = [
+    { label:'Costos Directos',        val:dirSal,   color:'#e05a6b' },
+    { label:'Distribución Socios',    val:distSal,  color:'#3ecfb2' },
+    { label:'Inventario',             val:invSal,   color:'#d4a843' },
+    { label:'Herramientas/Marketing', val:toolsSal, color:'#9b7fe8' },
+    { label:'Gastos Ocasionales',     val:occSal,   color:'#5ba8e0' },
+  ].filter(c => c.val > 0).sort((a,b) => b.val-a.val);
+
+  document.getElementById('donutLegend').innerHTML = composition.map(c => `
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${c.color}"></div>
+      <span class="legend-label">${c.label}</span>
+      <span class="legend-val">${fmt(c.val)}</span>
+      <span class="legend-pct">${fmtPct(totalEgr>0?c.val/totalEgr:0)}</span>
+    </div>`).join('');
+
+  // Transaction log (all, sorted by date desc)
+  const catLabel = {
+    project:'Operativo', inventory:'Inventario', tools:'Herramientas',
+    occasional:'Ocasional', distribution:'Distribución', atypical:'Atípico', other:'Otro'
+  };
+  const catCss = {
+    project:'cat-op', inventory:'cat-inv', tools:'cat-tools',
+    occasional:'cat-occ', distribution:'cat-dist', atypical:'cat-occ', other:'cat-dist'
+  };
+  const allRows = [...data].sort((a,b) => {
+    if (!a.fecha && !b.fecha) return 0;
+    if (!a.fecha) return 1;
+    if (!b.fecha) return -1;
+    return b.fecha.localeCompare(a.fecha);
+  });
+  document.getElementById('txBody').innerHTML = allRows.slice(0, 100).map(r => {
+    const cat = classifyRow(r);
+    return `<tr>
+      <td class="tx-date">${r.fecha || '—'}</td>
+      <td class="tx-concepto">${r.concepto}</td>
+      <td style="color:var(--text-dim);font-size:0.75rem">${r.clienteNombre || (r.cliente ? 'ID '+r.cliente : '—')}</td>
+      <td><span class="tx-cat ${catCss[cat]}">${catLabel[cat]}</span></td>
+      <td style="text-align:right">${r.entradas > 0 ? '<span class="tx-in">'+fmt(r.entradas)+'</span>' : ''}</td>
+      <td style="text-align:right">${r.salidas  > 0 ? '<span class="tx-out">'+fmt(r.salidas)+'</span>'  : ''}</td>
+    </tr>`;
+  }).join('');
+}
+
+
+// ── FILTROS ──────────────────────────────────────────────
+let _lastMeta = {};
+
+// Parsea "yyyy-MM-dd" a Date local sin shifts de timezone
+function parseDate(str) {
+  if (!str) return null;
+  const p = String(str).split('-');
+  if (p.length !== 3) return null;
+  const d = new Date(+p[0], +p[1]-1, +p[2]);
+  return isNaN(d) ? null : d;
+}
+
+// Retorna Date de hoy basado en la fecha que envía el servidor (evita problemas de TZ)
+function getToday() {
+  if (_lastMeta.fechaHoy) {
+    const d = parseDate(_lastMeta.fechaHoy);
+    if (d) return d;
+  }
+  return new Date();
+}
+
+function populateFilterOptions(data) {
+  const projects = {};
+  const clients  = {};
+  data.forEach(r => {
+    if (r.cliente && r.cliente > 0) {
+      projects[r.cliente] = true;
+      if (r.clienteNombre) clients[r.clienteNombre] = true;
+    }
+  });
+
+  const projSel = document.getElementById('filterProject');
+  const cliSel  = document.getElementById('filterClient');
+  const prevProj = projSel.value;
+  const prevCli  = cliSel.value;
+
+  projSel.innerHTML = '<option value="all">Todos</option>' +
+    Object.keys(projects).map(Number).sort((a,b)=>a-b).map(id => {
+      const nombre = data.find(r => r.cliente == id)?.clienteNombre || '';
+      return `<option value="${id}">${id}${nombre ? ' — ' + nombre : ''}</option>`;
+    }).join('');
+
+  cliSel.innerHTML = '<option value="all">Todos</option>' +
+    Object.keys(clients).sort().map(n =>
+      `<option value="${n}">${n}</option>`
+    ).join('');
+
+  if (prevProj && prevProj !== 'all') projSel.value = prevProj;
+  if (prevCli  && prevCli  !== 'all') cliSel.value  = prevCli;
+}
+
+function getPeriodRange(period) {
+  const now = getToday();
+  const y   = now.getFullYear();
+  const m   = now.getMonth(); // 0-based: 0=Enero … 11=Diciembre
+
+  switch(period) {
+    case 'this_year':
+      return [new Date(y, 0, 1), new Date(y, 11, 31)];
+
+    case 'prev_year':
+      return [new Date(y-1, 0, 1), new Date(y-1, 11, 31)];
+
+    case 'this_semester':
+      // Sem 1: Ene–Jun | Sem 2: Jul–Dic
+      return m < 6
+        ? [new Date(y, 0, 1),  new Date(y, 5, 30)]
+        : [new Date(y, 6, 1),  new Date(y, 11, 31)];
+
+    case 'this_quarter': {
+      const q = Math.floor(m / 3); // 0,1,2,3
+      return [new Date(y, q*3, 1), new Date(y, q*3+3, 0)]; // día 0 del siguiente mes = último del actual
+    }
+
+    case 'this_month':
+      return [new Date(y, m, 1), new Date(y, m+1, 0)];
+
+    case 'prev_month':
+      return [new Date(y, m-1, 1), new Date(y, m, 0)];
+
+    case 'last_full_semester': {
+      // Si estamos en Sem2 → devolver Sem1 de este año
+      // Si estamos en Sem1 → devolver Sem2 del año pasado
+      if (m >= 6) return [new Date(y, 0, 1),   new Date(y, 5, 30)];
+      else        return [new Date(y-1, 6, 1),  new Date(y-1, 11, 31)];
+    }
+
+    case 'last_full_quarter': {
+      const q = Math.floor(m / 3);
+      if (q > 0) return [new Date(y, (q-1)*3, 1), new Date(y, q*3, 0)];
+      else       return [new Date(y-1, 9, 1),      new Date(y-1, 11, 31)]; // Q4 año anterior
+    }
+
+    default: return null;
+  }
+}
+
+function applyFilters(data) {
+  const period  = document.getElementById('filterPeriod').value;
+  const from    = document.getElementById('filterFrom').value;
+  const to      = document.getElementById('filterTo').value;
+  const projId  = document.getElementById('filterProject').value;
+  const cliName = document.getElementById('filterClient').value;
+
+  // Mostrar/ocultar rango personalizado
+  document.getElementById('customRangeGroup').style.display =
+    period === 'custom' ? 'flex' : 'none';
+
+  let filtered = [...data];
+
+  // ── Filtro de fecha ──────────────────────────────────────
+  let dateFrom = null, dateTo = null;
+
+  if (period === 'custom') {
+    // Input type="date" siempre devuelve yyyy-MM-dd
+    if (from) { const p=from.split('-'); dateFrom=new Date(+p[0],+p[1]-1,+p[2],0,0,0); }
+    if (to)   { const p=to.split('-');   dateTo  =new Date(+p[0],+p[1]-1,+p[2],23,59,59); }
+  } else if (period !== 'all') {
+    const range = getPeriodRange(period);
+    if (range) { dateFrom = range[0]; dateTo = range[1]; }
+  }
+
+  if (dateFrom || dateTo) {
+    filtered = filtered.filter(r => {
+      const d = parseDate(r.fecha); // r.fecha siempre es yyyy-MM-dd del Apps Script
+      if (!d) return false;
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo   && d > dateTo)   return false;
+      return true;
+    });
+  }
+
+  // ── Filtro por proyecto ──────────────────────────────────
+  if (projId !== 'all') {
+    filtered = filtered.filter(r => String(r.cliente) === String(projId));
+  }
+
+  // ── Filtro por cliente ───────────────────────────────────
+  if (cliName !== 'all') {
+    filtered = filtered.filter(r => r.clienteNombre === cliName);
+  }
+
+  // ── Badge de estado ──────────────────────────────────────
+  const isFiltered = period !== 'all' || projId !== 'all' || cliName !== 'all';
+  document.getElementById('filterStatus').style.display = isFiltered ? 'flex' : 'none';
+  if (isFiltered) {
+    document.getElementById('filterBadge').textContent =
+      filtered.length + ' / ' + data.length + ' registros';
+  }
+
+  return filtered;
+}
+
+function resetFilters() {
+  document.getElementById('filterPeriod').value  = 'all';
+  document.getElementById('filterFrom').value    = '';
+  document.getElementById('filterTo').value      = '';
+  document.getElementById('filterProject').value = 'all';
+  document.getElementById('filterClient').value  = 'all';
+  document.getElementById('customRangeGroup').style.display = 'none';
+  document.getElementById('filterStatus').style.display     = 'none';
+  applyFiltersAndRebuild();
+}
+
+function applyFiltersAndRebuild() {
+  const filtered = applyFilters(_allData);
+  buildDashboard(
+    { fechaActualizacion: _lastMeta.fechaActualizacion, totalRegistros: filtered.length },
+    filtered
+  );
+}
+// ─────────────────────────────────────────────────────────
+
+
+const API_URL = 'https://script.google.com/macros/s/AKfycbxDy_TE59Oc8dkmR5PgkyOwDf6ALzFMLPKERILZblPPH9DS2gQDKJa5BTlkzqu1aFph/exec';
+let _allData  = [];
+
+// ── DATE UTILS ───────────────────────────────────────────────
+function parseDate(str) {
+  if (!str) return null;
+  const p = String(str).split('-');
+  if (p.length !== 3) return null;
+  const d = new Date(+p[0], +p[1]-1, +p[2]);
+  return isNaN(d) ? null : d;
+}
+function getToday() {
+  if (_lastMeta.fechaHoy) { const d = parseDate(_lastMeta.fechaHoy); if (d) return d; }
+  return new Date();
+}
+
+// ── FILTER LOGIC ────────────────────────────────────────────
+function populateFilterOptions(data) {
+  const projects = {}, clients = {};
+  data.forEach(r => {
+    if (r.cliente && r.cliente > 0) {
+      projects[r.cliente] = true;
+      if (r.clienteNombre) clients[r.clienteNombre] = true;
+    }
+  });
+  const projSel = document.getElementById('filterProject');
+  const cliSel  = document.getElementById('filterClient');
+  const prevProj = projSel.value, prevCli = cliSel.value;
+  projSel.innerHTML = '<option value="all">Todos</option>' +
+    Object.keys(projects).map(Number).sort((a,b)=>a-b).map(id => {
+      const n = data.find(r=>r.cliente==id)?.clienteNombre||'';
+      return `<option value="${id}">${id}${n?' — '+n:''}</option>`;
+    }).join('');
+  cliSel.innerHTML = '<option value="all">Todos</option>' +
+    Object.keys(clients).sort().map(n=>`<option value="${n}">${n}</option>`).join('');
+  if (prevProj && prevProj!=='all') projSel.value = prevProj;
+  if (prevCli  && prevCli !=='all') cliSel.value  = prevCli;
+}
+
+function getPeriodRange(period) {
+  const now=getToday(), y=now.getFullYear(), m=now.getMonth();
+  switch(period) {
+    case 'this_year':           return [new Date(y,0,1), new Date(y,11,31)];
+    case 'prev_year':           return [new Date(y-1,0,1), new Date(y-1,11,31)];
+    case 'this_semester':       return m<6 ? [new Date(y,0,1),new Date(y,5,30)] : [new Date(y,6,1),new Date(y,11,31)];
+    case 'this_quarter':        { const q=Math.floor(m/3); return [new Date(y,q*3,1),new Date(y,q*3+3,0)]; }
+    case 'this_month':          return [new Date(y,m,1), new Date(y,m+1,0)];
+    case 'prev_month':          return [new Date(y,m-1,1), new Date(y,m,0)];
+    case 'last_full_semester':  return m>=6 ? [new Date(y,0,1),new Date(y,5,30)] : [new Date(y-1,6,1),new Date(y-1,11,31)];
+    case 'last_full_quarter':   { const q=Math.floor(m/3); return q>0 ? [new Date(y,(q-1)*3,1),new Date(y,q*3,0)] : [new Date(y-1,9,1),new Date(y-1,11,31)]; }
+    default: return null;
+  }
+}
+
+function applyFilters(data) {
+  const period  = document.getElementById('filterPeriod').value;
+  const from    = document.getElementById('filterFrom').value;
+  const to      = document.getElementById('filterTo').value;
+  const projId  = document.getElementById('filterProject').value;
+  const cliName = document.getElementById('filterClient').value;
+  document.getElementById('customRangeGroup').style.display = period==='custom' ? 'flex' : 'none';
+  let filtered = [...data];
+  let dateFrom=null, dateTo=null;
+  if (period==='custom') {
+    if (from) { const p=from.split('-'); dateFrom=new Date(+p[0],+p[1]-1,+p[2]); }
+    if (to)   { const p=to.split('-');   dateTo  =new Date(+p[0],+p[1]-1,+p[2],23,59,59); }
+  } else if (period!=='all') {
+    const range=getPeriodRange(period); if (range) { dateFrom=range[0]; dateTo=range[1]; }
+  }
+  if (dateFrom||dateTo) {
+    filtered=filtered.filter(r=>{
+      const d=parseDate(r.fecha); if(!d) return false;
+      if(dateFrom&&d<dateFrom) return false;
+      if(dateTo  &&d>dateTo)   return false;
+      return true;
+    });
+  }
+  if (projId!=='all')  filtered=filtered.filter(r=>String(r.cliente)===String(projId));
+  if (cliName!=='all') filtered=filtered.filter(r=>r.clienteNombre===cliName);
+  const isFiltered = period!=='all'||projId!=='all'||cliName!=='all';
+  document.getElementById('filterStatus').style.display = isFiltered?'flex':'none';
+  if (isFiltered) document.getElementById('filterBadge').textContent = filtered.length+' / '+data.length+' registros';
+  return filtered;
+}
+
+function resetFilters() {
+  ['filterPeriod','filterFrom','filterTo','filterProject','filterClient'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value=el.tagName==='SELECT'?'all':'';
+  });
+  document.getElementById('customRangeGroup').style.display='none';
+  document.getElementById('filterStatus').style.display='none';
+  applyFiltersAndRebuild();
+}
+
+function applyFiltersAndRebuild() {
+  const filtered=applyFilters(_allData);
+  buildDashboard({fechaActualizacion:_lastMeta.fechaActualizacion,totalRegistros:filtered.length},filtered);
+}
+
+// ── DATA LOADER ─────────────────────────────────────────────
+function setLoad(p,t) {
+  document.getElementById('loadingFill').style.width=p+'%';
+  document.getElementById('loadingText').textContent=t;
+}
+
+function processData(json) {
+  if (json.error) {
+    setLoad(100, 'Error');
+    document.getElementById('loadingScreen').classList.add('hidden');
+    document.querySelector('.main').insertAdjacentHTML('afterbegin',
+      '<div class="error-card" style="margin-bottom:24px;">⚠️ ' + json.error + '</div>');
+    return;
+  }
+  _allData  = json.data;
+  _lastMeta = json.meta;
+  setLoad(80, 'Procesando datos...');
+  populateFilterOptions(json.data);
+  var filtered = applyFilters(json.data);
+  buildDashboard({ fechaActualizacion: json.meta.fechaActualizacion, totalRegistros: filtered.length }, filtered);
+  setLoad(100, 'Listo');
+  setTimeout(function() { document.getElementById('loadingScreen').classList.add('hidden'); }, 400);
+}
+
+function loadData() {
+  setLoad(20, 'Conectando con Google Sheets...');
+  var cbName = 'rcb' + Date.now();
+  var script = document.createElement('script');
+  var done   = false;
+
+  window[cbName] = function(json) {
+    done = true;
+    delete window[cbName];
+    if (script.parentNode) document.body.removeChild(script);
+    processData(json);
+  };
+
+  script.onerror = function() {
+    if (done) return;
+    done = true;
+    delete window[cbName];
+    if (script.parentNode) document.body.removeChild(script);
+    setLoad(100, 'Error de conexión');
+    document.getElementById('loadingScreen').classList.add('hidden');
+    document.querySelector('.main').insertAdjacentHTML('afterbegin',
+      '<div class="error-card" style="margin-bottom:24px;">⚠️ No se pudo conectar con Google Sheets. Verifica tu conexión a internet y los permisos del Apps Script.</div>');
+  };
+
+  setTimeout(function() { if (!done) { done = true; script.onerror(); } }, 20000);
+
+  script.src = API_URL + '?callback=' + cbName + '&t=' + Date.now();
+  document.body.appendChild(script);
+}
+
+// Global error handler - shows errors visibly
+window.onerror = function(msg, src, line, col, err) {
+  var el = document.getElementById('loadingScreen');
+  if (el) el.classList.add('hidden');
+  var main = document.querySelector('.main');
+  if (main) {
+    main.insertAdjacentHTML('afterbegin',
+      '<div style="background:rgba(255,0,0,0.2);border:1px solid red;padding:16px;margin:16px;color:#ff6b6b;font-family:monospace;font-size:13px;border-radius:8px;">' +
+      '❌ JS ERROR line ' + line + ': ' + msg + '</div>');
+  }
+  console.error('REVELIER ERROR:', msg, 'line:', line, err);
+  return false;
+};
+
+try {
+  loadData();
+} catch(e) {
+  console.error('loadData failed:', e);
+  document.getElementById('loadingText').textContent = 'Error: ' + e.message;
+}
+setInterval(function() { try { loadData(); } catch(e) {} }, 5 * 60 * 1000);
+
+</script>
+</body>
+</html>
