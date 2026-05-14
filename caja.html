@@ -470,48 +470,45 @@ function buildDashboard(meta, data) {
     return da-db;
   });
 
-  // Detectar fila de saldo inicial caja
+  // Detectar fila de saldo inicial caja (puede estar en cualquier posición)
   const saldoInicialRow   = sorted.find(r =>
     r.concepto && r.concepto.toLowerCase().includes('saldo inicial caja')
   );
   const saldoInicial      = saldoInicialRow ? (saldoInicialRow.entradas||0) : 0;
   const fechaSaldoInicial = saldoInicialRow ? saldoInicialRow.fecha : null;
-  const dInicial          = parseDate(fechaSaldoInicial);
 
   // TODOS los movimientos reales (excluye la fila saldo inicial caja)
   const movimientos = sorted.filter(r =>
     !(r.concepto && r.concepto.toLowerCase().includes('saldo inicial caja'))
   );
 
-  // Movimientos POSTERIORES a la fecha del saldo inicial (para calcular saldo actual)
-  const movimientosPosteriores = movimientos.filter(r => {
-    if (!dInicial) return true;
-    const d = parseDate(r.fecha);
-    return d && d >= dInicial;
-  });
-
-  // Saldo actual = saldo inicial + movimientos posteriores
+  // Saldo actual = saldo inicial + movimientos POSTERIORES a la fecha del saldo inicial
+  const dInicial = parseDate(fechaSaldoInicial);
   let saldoActual = saldoInicial;
-  movimientosPosteriores.forEach(r => {
-    saldoActual += (r.entradas||0) - (r.salidas||0);
-  });
-
-  // Running saldo histórico completo (para historial y gráficos)
-  // Arranca desde 0 hasta la fecha del saldo inicial, luego salta al saldo inicial
-  let runningSaldo = 0;
-  const withSaldo = movimientos.map(r=>{
-    // Al llegar a la fecha del saldo inicial, reseteamos al saldo base
-    if (dInicial && !withSaldo._baseApplied) {
+  if (dInicial) {
+    movimientos.forEach(r => {
       const d = parseDate(r.fecha);
-      if (d && d >= dInicial) {
-        runningSaldo = saldoInicial;
-        withSaldo._baseApplied = true;
+      if (d && d > dInicial) {
+        saldoActual += (r.entradas||0) - (r.salidas||0);
       }
-    }
+    });
+  }
+
+  // Running saldo para el historial: arranca en 0 y corre cronológicamente
+  // Al llegar a la fecha del saldo inicial, el saldo se ajusta para que
+  // el acumulado en ese punto sea igual al saldoInicial
+  let runningSaldo = 0;
+  const withSaldo = movimientos.map((r, idx) => {
     runningSaldo += (r.entradas||0) - (r.salidas||0);
     return { ...r, saldo: runningSaldo };
   });
-  withSaldo._baseApplied = undefined;
+
+  // Ajustar el saldo corrido para que el último punto = saldoActual
+  // Calculamos el offset: diferencia entre saldoActual y el último saldo corrido
+  const lastSaldo   = withSaldo.length > 0 ? withSaldo[withSaldo.length-1].saldo : 0;
+  const saldoOffset = saldoInicial - lastSaldo; // cuánto falta para llegar al saldo base
+  // Aplicar offset a todos los puntos del historial
+  withSaldo.forEach(r => { r.saldo += saldoOffset; });
 
   // Totales sobre TODOS los movimientos históricos
   const totalIn    = movimientos.reduce((s,r)=>s+(r.entradas||0),0);
