@@ -470,51 +470,68 @@ function buildDashboard(meta, data) {
     return da-db;
   });
 
-  // Detectar fila de saldo inicial
-  const saldoInicialRow = sorted.find(r =>
+  // Detectar fila de saldo inicial caja
+  const saldoInicialRow   = sorted.find(r =>
     r.concepto && r.concepto.toLowerCase().includes('saldo inicial caja')
   );
-  const saldoInicial     = saldoInicialRow ? (saldoInicialRow.entradas||0) : 0;
+  const saldoInicial      = saldoInicialRow ? (saldoInicialRow.entradas||0) : 0;
   const fechaSaldoInicial = saldoInicialRow ? saldoInicialRow.fecha : null;
+  const dInicial          = parseDate(fechaSaldoInicial);
 
-  // Solo tomar movimientos desde la fecha del saldo inicial (inclusive)
-  // Excluir la fila del saldo inicial del historial normal (ya está como base)
-  const movimientos = sorted.filter(r => {
-    if (r.concepto && r.concepto.toLowerCase().includes('saldo inicial caja')) return false;
-    if (fechaSaldoInicial) {
-      const d = parseDate(r.fecha);
-      const dInicial = parseDate(fechaSaldoInicial);
-      if (d && dInicial && d < dInicial) return false;
-    }
-    return true;
+  // TODOS los movimientos reales (excluye la fila saldo inicial caja)
+  const movimientos = sorted.filter(r =>
+    !(r.concepto && r.concepto.toLowerCase().includes('saldo inicial caja'))
+  );
+
+  // Movimientos POSTERIORES a la fecha del saldo inicial (para calcular saldo actual)
+  const movimientosPosteriores = movimientos.filter(r => {
+    if (!dInicial) return true;
+    const d = parseDate(r.fecha);
+    return d && d >= dInicial;
   });
 
-  // Running saldo partiendo del saldo inicial
-  let runningSaldo = saldoInicial;
+  // Saldo actual = saldo inicial + movimientos posteriores
+  let saldoActual = saldoInicial;
+  movimientosPosteriores.forEach(r => {
+    saldoActual += (r.entradas||0) - (r.salidas||0);
+  });
+
+  // Running saldo histórico completo (para historial y gráficos)
+  // Arranca desde 0 hasta la fecha del saldo inicial, luego salta al saldo inicial
+  let runningSaldo = 0;
   const withSaldo = movimientos.map(r=>{
+    // Al llegar a la fecha del saldo inicial, reseteamos al saldo base
+    if (dInicial && !withSaldo._baseApplied) {
+      const d = parseDate(r.fecha);
+      if (d && d >= dInicial) {
+        runningSaldo = saldoInicial;
+        withSaldo._baseApplied = true;
+      }
+    }
     runningSaldo += (r.entradas||0) - (r.salidas||0);
     return { ...r, saldo: runningSaldo };
   });
+  withSaldo._baseApplied = undefined;
 
-  // Calcular sobre movimientos reales (excluye saldo inicial)
-  const totalIn  = movimientos.reduce((s,r)=>s+(r.entradas||0),0);
-  const totalOut = movimientos.reduce((s,r)=>s+(r.salidas||0),0);
-  const saldoFinal = runningSaldo;
-  const flujoNeto  = totalIn - totalOut;
+  // Totales sobre TODOS los movimientos históricos
+  const totalIn    = movimientos.reduce((s,r)=>s+(r.entradas||0),0);
+  const totalOut   = movimientos.reduce((s,r)=>s+(r.salidas||0),0);
+  const saldoFinal = saldoActual;   // Saldo actual = base + posteriores
+  const flujoNeto  = saldoActual - saldoInicial; // Variación desde el saldo inicial
 
   // Hero
   const heroEl = document.getElementById('heroSaldo');
-  heroEl.textContent = fmt(saldoFinal);
-  heroEl.style.color = saldoFinal >= 0 ? 'var(--blue)' : 'var(--red)';
+  heroEl.textContent = fmt(saldoActual);
+  heroEl.style.color = saldoActual >= 0 ? 'var(--blue)' : 'var(--red)';
   document.getElementById('heroIn').textContent    = fmt(totalIn);
   document.getElementById('heroOut').textContent   = fmt(totalOut);
-  document.getElementById('heroInSub').textContent  = movimientos.filter(r=>r.entradas>0).length + ' ingresos';
-  document.getElementById('heroOutSub').textContent = movimientos.filter(r=>r.salidas>0).length  + ' egresos';
-  document.getElementById('heroSub').textContent    = movimientos.length + ' movimientos desde saldo inicial' + (saldoInicialRow ? ' (' + fechaSaldoInicial + ')' : '') + ' · Base: ' + fmt(saldoInicial);
+  document.getElementById('heroInSub').textContent  = movimientos.filter(r=>r.entradas>0).length + ' ingresos históricos';
+  document.getElementById('heroOutSub').textContent = movimientos.filter(r=>r.salidas>0).length  + ' egresos históricos';
+  document.getElementById('heroSub').textContent    = movimientos.length + ' movimientos históricos · Saldo base desde ' + (fechaSaldoInicial||'—') + ': ' + fmt(saldoInicial) + ' · Variación: ' + fmt(flujoNeto);
 
   // KPIs
-  document.getElementById('k1').textContent = fmt(saldoFinal);
-  document.getElementById('k1').style.color = saldoFinal>=0 ? 'var(--blue)' : 'var(--red)';
+  document.getElementById('k1').textContent = fmt(saldoActual);
+  document.getElementById('k1').style.color = saldoActual>=0 ? 'var(--blue)' : 'var(--red)';
   document.getElementById('k2').textContent = fmt(totalIn);
   document.getElementById('k3').textContent = fmt(totalOut);
   document.getElementById('k4').textContent = fmt(flujoNeto);
@@ -522,7 +539,7 @@ function buildDashboard(meta, data) {
   document.getElementById('k2s').textContent = fmtPct(totalIn>0?1:0) + ' flujo positivo';
   document.getElementById('k3s').textContent = fmtPct(totalIn>0?totalOut/totalIn:0) + ' sobre ingresos';
   document.getElementById('lastUpdate').textContent = meta.fechaActualizacion || '—';
-  document.getElementById('footerMeta').textContent = movimientos.length + ' movimientos · Saldo base: ' + fmt(saldoInicial);
+  document.getElementById('footerMeta').textContent = movimientos.length + ' movimientos · Saldo base ' + (fechaSaldoInicial||'') + ': ' + fmt(saldoInicial) + ' → Actual: ' + fmt(saldoActual);
 
   // Monthly aggregation
   const monthMap = {};
